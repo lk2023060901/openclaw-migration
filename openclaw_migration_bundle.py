@@ -736,7 +736,11 @@ def import_bundle(
         if not source_path.exists():
             raise SystemExit(f"missing payload entry: {source_path}")
         destination = target_home / rel_text
-        copy_entry(source_path, destination)
+        copy_entry(
+            source_path,
+            destination,
+            export_mode=str(manifest.get("exportMode") or "full"),
+        )
         rewrite_text_paths(destination, source_aliases, target_home_text)
 
     selected_agents = [
