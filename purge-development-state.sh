@@ -42,19 +42,19 @@ Usage:
 What it does:
   1. Stop OpenClaw gateway and wait until its listener is fully gone
   2. Parse ~/.openclaw/openclaw.json and discover every configured agent dynamically
-  3. Purge each configured agent's runtime state
-  4. Purge inferred team/shared runtime state
+  3. Purge each configured agent's runtime state, session history, memory, and output
+  4. Purge inferred shared runtime roots for any configured agent team/workspace cluster
   5. Purge transient runtime workspaces/tasks created while agents were running
-  6. Stabilize runtime on disk before the gateway can see stale work again
+  6. Stabilize runtime on disk so stale agent/session state does not survive the purge
   7. Start OpenClaw gateway
   8. Check gateway status
 
 What it clears by default:
   - bot-authored Feishu group messages referenced by persisted status history
-  - all configured agent session transcripts (*.jsonl)
+  - all configured agent session transcripts (*.jsonl), including heartbeat-control transcripts
   - all configured agent session indexes (sessions.json)
   - per-agent memories/runtime directories when present
-  - workspace runtime state and historical output directories such as:
+  - workspace runtime state and historical output directories discovered from configured workspaces, such as:
       sessions/, events/, artifacts/, projects/, archives/,
       memory/, memories/, logs/, snapshots/, generated/, specs/
   - workspace runtime JSON such as:
@@ -459,42 +459,20 @@ trim_agent_runtime_sessions() {
 
   python3 - "$sessions_index" "$sessions_dir" <<'PY'
 import json
-import re
 import sys
 from pathlib import Path
 
 index_path = Path(sys.argv[1])
 sessions_dir = Path(sys.argv[2])
-allowed = re.compile(r"^agent:[^:]+:heartbeat-control$")
-
-data = {}
-if index_path.exists():
-    try:
-        with index_path.open("r", encoding="utf-8") as fh:
-            loaded = json.load(fh)
-        if isinstance(loaded, dict):
-            data = loaded
-    except Exception:
-        data = {}
-
-kept = {}
-referenced = set()
-for key, value in data.items():
-    if not allowed.fullmatch(str(key)):
-        continue
-    if isinstance(value, dict):
-        kept[key] = value
-        session_file = value.get("sessionFile")
-        if isinstance(session_file, str) and session_file:
-            referenced.add(str(Path(session_file).resolve()))
 
 for path in sessions_dir.glob("*.jsonl"):
-    if str(path.resolve()) not in referenced:
-        path.unlink(missing_ok=True)
+    path.unlink(missing_ok=True)
+for path in sessions_dir.glob("*.jsonl.lock"):
+    path.unlink(missing_ok=True)
 
 index_path.parent.mkdir(parents=True, exist_ok=True)
 with index_path.open("w", encoding="utf-8") as fh:
-    json.dump(kept, fh, ensure_ascii=False, indent=2)
+    json.dump({}, fh, ensure_ascii=False, indent=2)
     fh.write("\n")
 PY
 }

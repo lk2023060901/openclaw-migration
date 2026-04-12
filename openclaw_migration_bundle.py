@@ -200,6 +200,14 @@ def resolve_agent_ids(agent_id: str, agents_by_id: dict[str, dict[str, Any]]) ->
 
 
 def infer_team_root(workspace: Path, all_agent_ids: set[str]) -> Path | None:
+    if (workspace / "_shared").exists():
+        child_agent_dirs = 0
+        for child in workspace.iterdir():
+            if child.is_dir() and child.name in all_agent_ids:
+                child_agent_dirs += 1
+                if child_agent_dirs >= 1:
+                    return workspace
+
     parent = workspace.parent
     if workspace.name not in all_agent_ids:
         return None
