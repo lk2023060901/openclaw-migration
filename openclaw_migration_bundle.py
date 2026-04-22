@@ -19,6 +19,7 @@ EXPORT_MODES = ("skeleton", "full")
 
 IGNORE_NAMES = {
     ".DS_Store",
+    ".git",
     "__pycache__",
 }
 IGNORE_SUFFIXES = {
@@ -30,14 +31,20 @@ IGNORE_SUFFIXES = {
 
 SKELETON_IGNORE_DIR_NAMES = {
     "sessions",
+    "session-archives",
     "events",
     "artifacts",
+    "executions",
     "projects",
     "archives",
     "memory",
     "memories",
     "logs",
+    "reports",
+    "runs",
     "snapshots",
+    "tasks",
+    "tasks_archive",
     "node_modules",
     "dist",
     "build",
@@ -53,14 +60,29 @@ SKELETON_IGNORE_FILE_NAMES = {
     "task.json",
     "workflow.json",
     "watchdog.json",
+    "orchestrator.current-task.json",
+    "orchestrator.state.json",
+    "orchestrator.state.json.prev",
+    "orchestrator.run.lock",
+    "orchestrator.state.lock",
     "sessions.json",
     "auth-profiles.json",
+    "auth-state.json",
     "team-status.json",
     "workspace-state.json",
     "group_sequence.json",
     "pyvenv.cfg",
     ".last-run.json",
 }
+
+MIGRATION_TOOL_NAMES = (
+    "MIGRATION.md",
+    "openclaw_migration_bundle.py",
+    "export-openclaw-migration.sh",
+    "import-openclaw-migration.sh",
+    "export-openclaw-migration.bat",
+    "import-openclaw-migration.bat",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -315,6 +337,8 @@ def recursively_rewrite_paths(
 def should_ignore(path: Path, export_mode: str = "full") -> bool:
     if path.name in IGNORE_NAMES:
         return True
+    if ".bak-" in path.name:
+        return True
     if any(path.name.endswith(suffix) for suffix in IGNORE_SUFFIXES):
         return True
     if export_mode == "skeleton":
@@ -359,6 +383,16 @@ def rewrite_text_paths(root: Path, source_home_aliases: Iterable[str], target_ho
         rewritten = replace_path_text(text, source_home_aliases, target_home_text)
         if rewritten != text:
             path.write_text(rewritten, encoding="utf-8")
+
+
+def copy_migration_tools(output_dir: Path) -> None:
+    source_dir = Path(__file__).resolve().parent
+    tools_dir = output_dir / "migration-tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    for name in MIGRATION_TOOL_NAMES:
+        source = source_dir / name
+        if source.is_file():
+            shutil.copy2(source, tools_dir / name)
 
 
 def selected_bindings(config: dict[str, Any], selected_agent_ids: set[str]) -> list[dict[str, Any]]:
@@ -527,6 +561,7 @@ def export_bundle(
     for source_path, rel in copy_plan:
         copy_entry(source_path, payload_root / rel, export_mode=export_mode)
 
+    copy_migration_tools(output_dir)
     dump_json(output_dir / MANIFEST_NAME, manifest)
     return {
         "mode": manifest["mode"],

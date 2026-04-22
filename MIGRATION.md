@@ -254,8 +254,12 @@ An exported bundle directory contains:
   Manifest file for the bundle.
 - `payload/`
   Copied agent, workspace, and related files to import.
+- `migration-tools/`
+  A copy of the migration entrypoints and Python bundle tool, including import
+  and export scripts for macOS/Linux and Windows.
 
-The bundle directory does not need to contain any scripts.
+The bundle can therefore be moved to another machine and imported with the
+scripts under `migration-tools/`.
 
 When exported in the default `skeleton` mode, the bundle intentionally excludes historical runtime data from the source machine.
 For example, exporting the `development` team will not include completed project history, session transcripts, or agent memory state from the source machine.
